@@ -1,0 +1,16 @@
+{
+    "config": {
+        "mount_path": {
+            "value": "\"disk\""
+        },
+        "update_file": {
+            "value": "\"awesum-update.bin\""
+        }
+    },
+    "target_overrides": {
+        "XDOT_L151CC": {
+            "target.restrict_size": "0x20000"
+        }
+    },
+    "macros": []
+}

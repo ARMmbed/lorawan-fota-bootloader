@@ -1,0 +1,6 @@
+BUILD/
+mbed-os/
+mbed_settings.*
+at45-blockdevice/
+
+
