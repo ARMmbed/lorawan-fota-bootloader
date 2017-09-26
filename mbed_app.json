@@ -1,16 +1,10 @@
 {
-    "config": {
-        "mount_path": {
-            "value": "\"disk\""
-        },
-        "update_file": {
-            "value": "\"awesum-update.bin\""
-        }
-    },
     "target_overrides": {
+        "*": {
+            "platform.stdio-flush-at-exit": false
+        },
         "XDOT_L151CC": {
-            "target.restrict_size": "0x20000"
+            "target.restrict_size": "0x6000"
         }
-    },
-    "macros": []
+    }
 }

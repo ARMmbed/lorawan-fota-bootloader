@@ -2,12 +2,7 @@
 #include "AT45BlockDevice.h"
 #include "FlashIAP.h"
 #include "FATFileSystem.h"
-
-#if defined(NDEBUG) && NDEBUG == 1
-#define debug(...) do {} while(0)
-#else
-#define debug(...) printf(__VA_ARGS__)
-#endif
+#include "debug.h"
 
 AT45BlockDevice bd;
 FlashIAP flash;
@@ -68,6 +63,8 @@ void apply_update(BlockDevice* bd, uint32_t bd_offset, size_t bd_size)
 
 int start_app() {
     debug("Starting the application at %p\n", POST_APPLICATION_ADDR);
+
+    bd.deinit();
 
     mbed_start_application(POST_APPLICATION_ADDR);
 
