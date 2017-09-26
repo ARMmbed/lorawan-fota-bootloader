@@ -21,7 +21,7 @@ Bootloader used for firmware updates over LoRaWAN. Tested with [L-Tek FF1705](ht
 
 If you want to see debug messages on the serial port (baud rate 9,600):
 
-1. Open `mbed_app.json` and set `target.restrict_size` to `0x6000`.
+1. Open `mbed_app.json` and set `target.restrict_size` to `0x7000`.
 1. Build with:
 
     ```

@@ -3,6 +3,11 @@
 #include "FlashIAP.h"
 #include "FATFileSystem.h"
 #include "debug.h"
+#include "FragmentationCrc64.h"
+
+// These values need to be the same between target application and bootloader!
+#define     FOTA_INFO_PAGE         0x1800    // The information page for the firmware update
+#define     FOTA_UPDATE_PAGE       0x1801    // The update starts at this page (and then continues)
 
 AT45BlockDevice bd;
 FlashIAP flash;
@@ -11,6 +16,7 @@ struct UpdateParams_t {
     bool update_pending;
     size_t size;
     uint32_t signature;
+    uint64_t hash;
 
     static const uint32_t MAGIC = 0x1BEAC000;
 };
@@ -25,6 +31,8 @@ void apply_update(BlockDevice* bd, uint32_t bd_offset, size_t bd_size)
     uint32_t addr = POST_APPLICATION_ADDR;
     uint32_t next_sector = addr + flash.get_sector_size(addr);
     bool sector_erased = false;
+
+    size_t pkt_counter = 0;
 
     size_t bd_bytes_to_read = bd_size;
 
@@ -44,8 +52,8 @@ void apply_update(BlockDevice* bd, uint32_t bd_offset, size_t bd_size)
             sector_erased = true;
         }
 
-        // Program page
-        flash.program(page_buffer, addr, length);
+        // Program page (always needs page_size length, but it's OK, the page is already cleared)
+        flash.program(page_buffer, addr, page_size);
 
         addr += length;
         bd_offset += length;
@@ -54,6 +62,13 @@ void apply_update(BlockDevice* bd, uint32_t bd_offset, size_t bd_size)
         if (addr >= next_sector) {
             next_sector = addr + flash.get_sector_size(addr);
             sector_erased = false;
+        }
+
+        // progress message
+        if (++pkt_counter % 5 == 0 || bd_bytes_to_read == 0) {
+            debug("Flashing: %d%% (%lu / %lu bytes)\n",
+                static_cast<int>((1.0f - static_cast<float>(bd_bytes_to_read) / static_cast<float>(bd_size)) * 100.0f),
+                bd_size - bd_bytes_to_read, bd_size);
         }
     }
     delete[] page_buffer;
@@ -80,19 +95,46 @@ int main() {
         return start_app();
     }
 
-    // read info on page 0x1800 to see if there's an update
+    // read info on page FOTA_INFO_PAGE to see if there's an update
     UpdateParams_t params;
-    err = bd.read(&params, 0x1800 * bd.get_read_size(), sizeof(UpdateParams_t));
+    err = bd.read(&params, FOTA_INFO_PAGE * bd.get_read_size(), sizeof(UpdateParams_t));
+
+    debug("Update parameters:\n");
+    debug("\terr:       %d\n",    err);
+    debug("\tpending:   %d\n",    params.update_pending);
+    debug("\tsize:      %lu\n",   params.size);
+    debug("\tsignature: 0x%x\n",  params.signature);
+    // nanolib printf behavior is different from non-nanolib
+    uint8_t* hash = (uint8_t*)(&params.hash);
+    debug("\thash:      %02x%02x%02x%02x%02x%02x%02x%02x\n", hash[7], hash[6], hash[5], hash[4], hash[3], hash[2], hash[1], hash[0]);
 
     if (err == 0 && params.signature == UpdateParams_t::MAGIC && params.update_pending == 1) {
-        debug("I has update pending, size=%lu bytes!\n", params.size);
+        debug("Verifying hash...\n");
 
-        // update starts at page 0x1801
-        apply_update(&bd, 0x1801 * bd.get_read_size(), params.size);
+        uint8_t crc_buffer[528];
+
+        FragmentationCrc64 crc64(&bd, crc_buffer, sizeof(crc_buffer));
+        uint64_t crc_res = crc64.calculate(FOTA_UPDATE_PAGE * bd.get_read_size(), params.size);
+
+        if (crc_res != params.hash) {
+            uint8_t* crc = (uint8_t*)(&crc_res);
+            debug("CRC64 hash did not match. Expected %02x%02x%02x%02x%02x%02x%02x%02x, was %02x%02x%02x%02x%02x%02x%02x%02x. Not applying update.\n",
+                hash[7], hash[6], hash[5], hash[4], hash[3], hash[2], hash[1], hash[0],
+                crc[7],  crc[6],  crc[5],  crc[4],  crc[3],  crc[2],  crc[1],  crc[0]);
+        }
+        else {
+            debug("CRC64 hash matched. Applying update...\n");
+
+            // update starts at page FOTA_UPDATE_PAGE
+            apply_update(&bd, FOTA_UPDATE_PAGE * bd.get_read_size(), params.size);
+        }
+
+        // clear the parameters...
+        memset(&params, 0, sizeof(UpdateParams_t));
+        bd.program(&params, FOTA_INFO_PAGE * bd.get_read_size(), sizeof(UpdateParams_t));
     }
     else {
-        debug("No pending update. err=%d, signature=%x, update_pending=%d\n",
-            err, params.signature, params.update_pending);
+        debug("No pending update\n");
     }
 
     start_app();
