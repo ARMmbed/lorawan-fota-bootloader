@@ -1,25 +1,18 @@
 #include "mbed.h"
 #include "AT45BlockDevice.h"
 #include "FlashIAP.h"
-#include "FATFileSystem.h"
-#include "debug.h"
-#include "FragmentationCrc64.h"
-
-// These values need to be the same between target application and bootloader!
-#define     FOTA_INFO_PAGE         0x1800    // The information page for the firmware update
-#define     FOTA_UPDATE_PAGE       0x1801    // The update starts at this page (and then continues)
+#include "mbed_debug.h"
+#include "update_params.h"
+#include "FragmentationSha256.h"
 
 AT45BlockDevice bd;
 FlashIAP flash;
 
-struct UpdateParams_t {
-    bool update_pending;
-    size_t size;
-    uint32_t signature;
-    uint64_t hash;
-
-    static const uint32_t MAGIC = 0x1BEAC000;
-};
+static void print_sha256(unsigned char* hash) {
+    for (size_t ix = 0; ix < 32; ix++) {
+        debug("%02x", hash[ix]);
+    }
+}
 
 void apply_update(BlockDevice* bd, uint32_t bd_offset, size_t bd_size)
 {
@@ -104,29 +97,43 @@ int main() {
     debug("\tpending:   %d\n",    params.update_pending);
     debug("\tsize:      %lu\n",   params.size);
     debug("\tsignature: 0x%x\n",  params.signature);
-    // nanolib printf behavior is different from non-nanolib
-    uint8_t* hash = (uint8_t*)(&params.hash);
-    debug("\thash:      %02x%02x%02x%02x%02x%02x%02x%02x\n", hash[7], hash[6], hash[5], hash[4], hash[3], hash[2], hash[1], hash[0]);
+    debug("\thash:      ");
+    print_sha256(params.sha256_hash);
+    debug("\n");
 
     if (err == 0 && params.signature == UpdateParams_t::MAGIC && params.update_pending == 1) {
         debug("Verifying hash...\n");
 
-        uint8_t crc_buffer[528];
+        uint8_t sha_buffer[528];
+        unsigned char sha_out[32];
 
-        FragmentationCrc64 crc64(&bd, crc_buffer, sizeof(crc_buffer));
-        uint64_t crc_res = crc64.calculate(FOTA_UPDATE_PAGE * bd.get_read_size(), params.size);
+        FragmentationSha256 sha256(&bd, sha_buffer, sizeof(sha_buffer));
+        // first 256 bytes are the RSA/SHA256 signature, ignore those
+        sha256.calculate(
+            FOTA_UPDATE_PAGE * bd.get_read_size() + FOTA_SIGNATURE_LENGTH,
+            params.size - FOTA_SIGNATURE_LENGTH,
+            sha_out);
 
-        if (crc_res != params.hash) {
-            uint8_t* crc = (uint8_t*)(&crc_res);
-            debug("CRC64 hash did not match. Expected %02x%02x%02x%02x%02x%02x%02x%02x, was %02x%02x%02x%02x%02x%02x%02x%02x. Not applying update.\n",
-                hash[7], hash[6], hash[5], hash[4], hash[3], hash[2], hash[1], hash[0],
-                crc[7],  crc[6],  crc[5],  crc[4],  crc[3],  crc[2],  crc[1],  crc[0]);
+        bool hash_ok = true;
+        for (size_t ix = 0; ix < 32; ix++) {
+            if (sha_out[ix] != params.sha256_hash[ix]) {
+                hash_ok = false;
+                break;
+            }
+        }
+
+        if (!hash_ok) {
+            debug("SHA256 hash did not match. Expected ");
+            print_sha256(params.sha256_hash);
+            debug(", was ");
+            print_sha256(sha_out);
+            debug(". Not applying update.\n");
         }
         else {
-            debug("CRC64 hash matched. Applying update...\n");
+            debug("SHA256 hash matched. Applying update...\n");
 
             // update starts at page FOTA_UPDATE_PAGE
-            apply_update(&bd, FOTA_UPDATE_PAGE * bd.get_read_size(), params.size);
+            apply_update(&bd, FOTA_UPDATE_PAGE * bd.get_read_size() + FOTA_SIGNATURE_LENGTH, params.size - FOTA_SIGNATURE_LENGTH);
         }
 
         // clear the parameters...
