@@ -19,23 +19,32 @@
  * This file is shared between bootloader and the target application
  */
 
- #ifndef _MBED_FOTA_UPDATE_PARAMS
- #define _MBED_FOTA_UPDATE_PARAMS
+#ifndef _MBED_FOTA_UPDATE_PARAMS
+#define _MBED_FOTA_UPDATE_PARAMS
 
- // These values need to be the same between target application and bootloader!
- #define     FOTA_INFO_PAGE         0x1800    // The information page for the firmware update
- #define     FOTA_UPDATE_PAGE       0x1801    // The update starts at this page (and then continues)
- #define     FOTA_SIGNATURE_LENGTH  256       // Length of RSA signature
+// These values need to be the same between target application and bootloader!
+#define     FOTA_INFO_PAGE         0x1800                       // The information page for the firmware update
+#define     FOTA_UPDATE_PAGE       0x1801                       // The update starts at this page (and then continues)
+#define     FOTA_SIGNATURE_LENGTH  sizeof(UpdateSignature_t)    // Length of RSA signature + class UUIDs + diff struct (5 bytes) -> matches sizeof(UpdateSignature_t)
 
- // This structure is shared between the bootloader and the target application
- // it contains information on whether there's an update pending, and the hash of the update
- struct UpdateParams_t {
-     bool update_pending;                // whether there's a pending update
-     size_t size;                        // size of the update
-     uint32_t signature;                 // the value of MAGIC (to indicate that we actually wrote to this block)
-     unsigned char sha256_hash[32];      // SHA256 hash of the update block
+// This structure is shared between the bootloader and the target application
+// it contains information on whether there's an update pending, and the hash of the update
+struct UpdateParams_t {
+    bool update_pending;                // whether there's a pending update
+    size_t size;                        // size of the update
+    uint32_t signature;                 // the value of MAGIC (to indicate that we actually wrote to this block)
+    unsigned char sha256_hash[32];      // SHA256 hash of the update block
 
-     static const uint32_t MAGIC = 0x1BEAC000;
- };
+    static const uint32_t MAGIC = 0x1BEAC000;
+};
 
- #endif
+// This structure contains the update header (which is the first FOTA_SIGNATURE_LENGTH bytes of a package)
+typedef struct {
+    unsigned char signature[256];       // RSA/SHA256 signature, signed with private key of the firmware (after applying patching)
+    uint8_t manufacturer_uuid[16];      // Manufacturer UUID
+    uint8_t device_class_uuid[16];      // Device Class UUID
+
+    uint32_t diff_info;                 // first byte indicates whether this is a diff, last three bytes are the size of the *old* file
+} UpdateSignature_t;
+
+#endif
