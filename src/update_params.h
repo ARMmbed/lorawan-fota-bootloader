@@ -32,8 +32,10 @@
 struct UpdateParams_t {
     bool update_pending;                // whether there's a pending update
     size_t size;                        // size of the update
-    uint32_t signature;                 // the value of MAGIC (to indicate that we actually wrote to this block)
+    uint32_t offset;                    // Location of the patch in flash
     unsigned char sha256_hash[32];      // SHA256 hash of the update block
+
+    uint32_t signature;                 // the value of MAGIC (to indicate that we actually wrote to this block)
 
     static const uint32_t MAGIC = 0x1BEAC000;
 };

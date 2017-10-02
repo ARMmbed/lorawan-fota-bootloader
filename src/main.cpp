@@ -96,6 +96,7 @@ int main() {
     debug("\terr:       %d\n",    err);
     debug("\tpending:   %d\n",    params.update_pending);
     debug("\tsize:      %lu\n",   params.size);
+    debug("\toffset:    %lu\n",   params.offset);
     debug("\tsignature: 0x%x\n",  params.signature);
     debug("\thash:      ");
     print_sha256(params.sha256_hash);
@@ -110,8 +111,8 @@ int main() {
         FragmentationSha256 sha256(&bd, sha_buffer, sizeof(sha_buffer));
         // first 256 bytes are the RSA/SHA256 signature, ignore those
         sha256.calculate(
-            FOTA_UPDATE_PAGE * bd.get_read_size() + FOTA_SIGNATURE_LENGTH,
-            params.size - FOTA_SIGNATURE_LENGTH,
+            params.offset,
+            params.size,
             sha_out);
 
         bool hash_ok = true;
@@ -133,7 +134,7 @@ int main() {
             debug("SHA256 hash matched. Applying update...\n");
 
             // update starts at page FOTA_UPDATE_PAGE
-            apply_update(&bd, FOTA_UPDATE_PAGE * bd.get_read_size() + FOTA_SIGNATURE_LENGTH, params.size - FOTA_SIGNATURE_LENGTH);
+            apply_update(&bd, params.offset, params.size);
         }
 
         // clear the parameters...
