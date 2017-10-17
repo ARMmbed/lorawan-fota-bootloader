@@ -133,7 +133,6 @@ int main() {
         else {
             debug("SHA256 hash matched. Applying update...\n");
 
-            // update starts at page FOTA_UPDATE_PAGE
             apply_update(&bd, params.offset, params.size);
         }
 
