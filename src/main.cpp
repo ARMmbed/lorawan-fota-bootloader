@@ -11,33 +11,17 @@
 AT45BlockDevice bd;
 FlashIAP flash;
 
-static void calculate_sha256(BlockDevice* bd, size_t offset, size_t size, unsigned char sha_out_buffer[32]) {
-    uint8_t sha_buffer[128];
-
-    // SHA256 requires a large buffer, alloc on heap instead of stack
-    FragmentationSha256* sha256 = new FragmentationSha256(bd, sha_buffer, sizeof(sha_buffer));
-
-    sha256->calculate(
-        offset,
-        size,
-        sha_out_buffer);
-
-    delete sha256;
-}
-
 static void print_sha256(unsigned char sha_out_buffer[32]) {
-    debug("SHA256 hash is: ");
     for (size_t ix = 0; ix < 32; ix++) {
         debug("%02x", sha_out_buffer[ix]);
     }
-    debug("\n");
 }
 
 void apply_update(BlockDevice* bd, uint32_t bd_offset, size_t bd_size)
 {
     flash.init();
 
-    const uint32_t page_size = flash.get_page_size();
+    const uint32_t page_size = 1 * 1024;
     char *page_buffer = new char[page_size];
 
     uint32_t addr = POST_APPLICATION_ADDR;
