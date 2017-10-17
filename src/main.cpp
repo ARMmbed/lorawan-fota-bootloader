@@ -21,11 +21,12 @@ void apply_update(BlockDevice* bd, uint32_t bd_offset, size_t bd_size)
 {
     flash.init();
 
-    const uint32_t page_size = 1 * 1024;
-    char *page_buffer = new char[page_size];
-
     uint32_t addr = POST_APPLICATION_ADDR;
     uint32_t next_sector = addr + flash.get_sector_size(addr);
+
+    const uint32_t page_size = flash.get_sector_size(addr);
+    char *page_buffer = new char[page_size];
+
     bool sector_erased = false;
 
     size_t pkt_counter = 0;
@@ -61,7 +62,7 @@ void apply_update(BlockDevice* bd, uint32_t bd_offset, size_t bd_size)
         }
 
         // progress message
-        if (++pkt_counter % 5 == 0 || bd_bytes_to_read == 0) {
+        if (++pkt_counter % 1 == 0 || bd_bytes_to_read == 0) {
             debug("Flashing: %d%% (%lu / %lu bytes)\n",
                 static_cast<int>((1.0f - static_cast<float>(bd_bytes_to_read) / static_cast<float>(bd_size)) * 100.0f),
                 bd_size - bd_bytes_to_read, bd_size);
