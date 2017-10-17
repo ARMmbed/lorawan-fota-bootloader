@@ -1,4 +1,15 @@
 {
+    "config": {
+        "total_flash_size": {
+            "help": "Total flash size on this device",
+            "value": "256 * 1024"
+        },
+        "bootloader_size": {
+            "help": "The same as target.restrict_size",
+            "value": "0x7000"
+        }
+    },
+    "macros": [ "JANPATCH_STREAM=BDFILE" ],
     "target_overrides": {
         "*": {
             "platform.stdio-flush-at-exit": false

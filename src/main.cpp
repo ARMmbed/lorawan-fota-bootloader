@@ -4,14 +4,33 @@
 #include "mbed_debug.h"
 #include "update_params.h"
 #include "FragmentationSha256.h"
+#include "BDFile.h"
+#include "janpatch.h"
+#include "mbed_delta_update.h"
 
 AT45BlockDevice bd;
 FlashIAP flash;
 
-static void print_sha256(unsigned char* hash) {
+static void calculate_sha256(BlockDevice* bd, size_t offset, size_t size, unsigned char sha_out_buffer[32]) {
+    uint8_t sha_buffer[128];
+
+    // SHA256 requires a large buffer, alloc on heap instead of stack
+    FragmentationSha256* sha256 = new FragmentationSha256(bd, sha_buffer, sizeof(sha_buffer));
+
+    sha256->calculate(
+        offset,
+        size,
+        sha_out_buffer);
+
+    delete sha256;
+}
+
+static void print_sha256(unsigned char sha_out_buffer[32]) {
+    debug("SHA256 hash is: ");
     for (size_t ix = 0; ix < 32; ix++) {
-        debug("%02x", hash[ix]);
+        debug("%02x", sha_out_buffer[ix]);
     }
+    debug("\n");
 }
 
 void apply_update(BlockDevice* bd, uint32_t bd_offset, size_t bd_size)
@@ -142,6 +161,17 @@ int main() {
     }
     else {
         debug("No pending update\n");
+    }
+
+    // now copy the current fw. to flash page FOTA_DIFF_OLD_FW_PAGE
+    // @todo: how could we know when *not* do to this?
+    int total_size = MBED_CONF_APP_TOTAL_FLASH_SIZE - MBED_CONF_APP_BOOTLOADER_SIZE;
+    int v;
+    v = copy_flash_to_blockdevice(16 * 1024, POST_APPLICATION_ADDR,
+        total_size, &bd, FOTA_DIFF_OLD_FW_PAGE * bd.get_read_size());
+
+    if (v != MBED_DELTA_UPDATE_OK) {
+        debug("copy_flash_to_blockdevice failed %d\n", v);
     }
 
     start_app();

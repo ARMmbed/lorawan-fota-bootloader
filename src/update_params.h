@@ -25,7 +25,9 @@
 // These values need to be the same between target application and bootloader!
 #define     FOTA_INFO_PAGE         0x1800                       // The information page for the firmware update
 #define     FOTA_UPDATE_PAGE       0x1801                       // The update starts at this page (and then continues)
-#define     FOTA_SIGNATURE_LENGTH  sizeof(UpdateSignature_t)    // Length of RSA signature + class UUIDs + diff struct (5 bytes) -> matches sizeof(UpdateSignature_t)
+#define     FOTA_DIFF_OLD_FW_PAGE  0x2100
+#define     FOTA_DIFF_TARGET_PAGE  0x2500
+#define     FOTA_SIGNATURE_LENGTH  sizeof(UpdateSignature_t)    // Length of ECDSA signature + class UUIDs + diff struct (5 bytes) -> matches sizeof(UpdateSignature_t)
 
 // This structure is shared between the bootloader and the target application
 // it contains information on whether there's an update pending, and the hash of the update
