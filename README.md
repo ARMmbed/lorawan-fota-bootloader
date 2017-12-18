@@ -8,7 +8,7 @@ Bootloader used for firmware updates over LoRaWAN. Tested with [L-Tek FF1705](ht
 1. Import this project:
 
     ```
-    $ mbed import https://github.com/janjongboom/lorawan-at45-fota-bootloader
+    $ mbed import https://github.com/armmbed/lorawan-fota-bootloader
     ```
 
 1. Build the project:
@@ -16,12 +16,13 @@ Bootloader used for firmware updates over LoRaWAN. Tested with [L-Tek FF1705](ht
     ```
     $ mbed compile -m xdot_l151cc -t GCC_ARM --profile ./profiles/release.json
     ```
+    
+Note that the bootloader size is currently set to `0x7000`, but you can set this lower when building for a release profile if you need more space for your application.
 
 ### Debug messages
 
 If you want to see debug messages on the serial port (baud rate 9,600):
 
-1. Open `mbed_app.json` and set `target.restrict_size` to `0x7000`.
 1. Build with:
 
     ```
